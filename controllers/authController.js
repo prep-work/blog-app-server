@@ -14,12 +14,12 @@ const login = async (request, response) => {
     try{
         const existingUser = await userModel.findOne({ email }).select('+password') // default the mongoose doesn't provide password
         if(!existingUser) {
-            return response.status(401).send({status: 'failed', code: 401, data: [], message: 'Invalid email address'})
+            return response.status(401).send({status: 'failed', code: 401, message: 'Invalid email address'})
         }
 
         const validatePassword = await bcrypt.compare(`${request.body.password}`, existingUser.password)
         if(!validatePassword) {
-            return response.status(401).send({status: 'failed', code: 401, data: [], message: 'Invalid password'})
+            return response.status(401).send({status: 'failed', code: 401, message: 'Invalid password'})
         }
 
         let options = {
@@ -31,17 +31,17 @@ const login = async (request, response) => {
 
         const token = existingUser.generateAccessJWT()
         response.cookie('SessionID', token, options)
-        response.status(200).send({status: 'success', code: 200, message: 'Login Successful'})
+        response.status(200).send({status: 'success', code: 200, message: 'Login Successfully'})
     } 
     catch(error) {
-        response.status(500).send({status: 'error', code:500,  data: [], message: error.message})
+        response.status(500).send({status: 'error', code:500, message: error.message})
     }
 }
 
 const logout = async (request, response) => {
     const authHeader = request.headers['cookie']
     if(!authHeader){
-        return response.status(204).send({status: 'error', code: 204, data: [], message: 'No Content'})
+        return response.status(204).send({status: 'error', code: 204, message: 'No Content'})
     }
 
     const cookie = authHeader.split('=')[1]

@@ -1,6 +1,7 @@
 const express = require('express')
 const app = express()
 
+const cors = require('cors')
 const morgan = require('morgan')
 const cookieParser = require('cookie-parser')
 
@@ -8,21 +9,20 @@ const {PORT} = require('./configuration/config')
 const connect = require('./database/connection')
 
 const adminRoute = require('./routes/adminRoute')
+const userRoute = require('./routes/userRoute')
 
+app.use(cors())
 app.use(morgan('tiny'))
 app.use(cookieParser())
 app.use(express.urlencoded({ extended: true }))
 app.use(express.json())
-
-app.set('view engine', 'ejs')
-app.set('views', './views')
-app.use(express.static('public'))
 
 app.get('/', (request, response) => {
     response.status(200).send({message : "It's working ✌️"})
 })
 
 app.use('/api/v1/admin', adminRoute)
+app.use('/api/v1/user', userRoute)
 
 connect() 
     .then( () => {

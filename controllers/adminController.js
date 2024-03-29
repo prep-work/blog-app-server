@@ -7,8 +7,6 @@ const authenticateAdmin = (request, response) => {
 const createUser = async (request, response) => {
     const {firstName, lastName, email, password} = request.body
     const {filename} = request.file
-    console.log(request.body)
-    console.log(request.file)
 
     try{
         const existingUser = await userModel.findOne({email})
@@ -16,11 +14,10 @@ const createUser = async (request, response) => {
             response.status(409).send({status: 'success', code: 409, data: [], message: 'Email id already exist'})
         }
         const image = 'public/images/' + filename
-        console.log("image", image)
         const userToBeRegistered = new userModel({firstName, lastName, email, password, image})
 
         const newUser = await userToBeRegistered.save()
-        const {password: userPassword, role: role, ...user_data} = newUser._doc
+        const {password: userPassword, ...user_data} = newUser._doc
         response.status(201).send({status: 'success', code: 201, data: [user_data], message: 'User created successfully'})
     } 
     catch(error) {
