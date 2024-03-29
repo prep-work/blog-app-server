@@ -33,10 +33,6 @@ const userSchema = new mongoose.Schema(
             type: String, 
             required: true,
         },
-        isOnline: {
-            type: String, 
-            default: '0',
-        },
         role: {
             type: String,
             required: true,
