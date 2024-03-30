@@ -30,8 +30,8 @@ router.get(
 
 router.post(
     '/createUser',
-    verify,
-    verifyAmin,
+    // verify,
+    // verifyAmin,
     upload.single('image'),
     check('email')
         .isEmail()

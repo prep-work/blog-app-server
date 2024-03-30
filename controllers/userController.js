@@ -1,7 +1,7 @@
 const userModel = require("../models/userModel")
 
 const authenticateUser = (request, response) => {
-    response.status(200).send({status: 'success', code: 200,  message: `${request.user.firstName} Welcome to User Dashboard`})
+    response.status(200).send({status: 'success', code: 200,  message: ` Welcome to User Dashboard`})
 }
 
 const signUp = async (request, response) => {
@@ -20,7 +20,7 @@ const signUp = async (request, response) => {
         response.status(201).send({status: 'success', code: 201, message: 'User created successfully'})
     } 
     catch(error) {
-        response.status(500).json({status: 'error', code:500, message: error.message})
+        response.status(500).send({status: 'error', code:500, message: error.message})
     }
 }
 
@@ -76,5 +76,5 @@ module.exports = {
     authenticateUser,
     signUp,
     editProfile,
-    deleteProfile
+    deleteProfile,
 }

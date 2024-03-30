@@ -5,7 +5,7 @@ const { check } = require('express-validator')
 const { login, logout } = require('../controllers/authController')
 const validate = require('../middleware/validate')
 const { verify } = require('../middleware/verify')
-const { authenticateUser, editProfile, signUp, deleteProfile } = require('../controllers/userController')
+const { authenticateUser, editProfile, signUp, deleteProfile, newPost } = require('../controllers/userController')
 const upload = require('../middleware/imageUpload')
 
 router.post(

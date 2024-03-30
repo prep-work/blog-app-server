@@ -23,15 +23,15 @@ const login = async (request, response) => {
         }
 
         let options = {
-            maxAge: 30 * 24 * 60 * 60 * 1000,
+            // maxAge: 30 * 24 * 60 * 60 * 1000,
             httpOnly: true,
             secure: true,
             sameSite: 'None'
         }
 
-        const token = existingUser.generateAccessJWT()
+        const token = existingUser.generateAccessJWT()     
         response.cookie('SessionID', token, options)
-        response.status(200).send({status: 'success', code: 200, message: 'Login Successfully'})
+        response.status(200).send({status: 'success', code: 200, data: [token], message: 'Login Successfully'})
     } 
     catch(error) {
         response.status(500).send({status: 'error', code:500, message: error.message})

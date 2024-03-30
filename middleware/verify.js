@@ -4,7 +4,7 @@ const userModel = require('../models/userModel')
 
 const verify = async (request, response, next) => {
     try {
-        const authHeader = request.headers['cookie']
+        const authHeader = request.headers['sessionid']
 
         if(!authHeader){
             return response.status(401).send({status: 'failure', code: 401, message: 'Token not found'})
@@ -19,7 +19,6 @@ const verify = async (request, response, next) => {
             }           
             const {id} = decoded
             const existingUser = await userModel.findById({_id: id})
-            console.log(existingUser)
             const password = existingUser?._doc?.password
             if(password) {
                 const {password, ...data} = existingUser?._doc
