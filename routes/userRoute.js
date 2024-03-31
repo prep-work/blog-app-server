@@ -5,8 +5,11 @@ const { check } = require('express-validator')
 const { login, logout } = require('../controllers/authController')
 const validate = require('../middleware/validate')
 const { verify } = require('../middleware/verify')
-const { authenticateUser, editProfile, signUp, deleteProfile, newPost } = require('../controllers/userController')
+const { authenticateUser, editProfile, signUp, deleteProfile, newBlogPost, getAllUserPosts, getAllPostsExceptUser, editBlogPost, deleteBlogPost } = require('../controllers/userController')
 const upload = require('../middleware/imageUpload')
+
+
+// User Routes 
 
 router.post(
     '/signup',
@@ -69,6 +72,41 @@ router.delete(
     '/deleteProfile',
     verify,
     deleteProfile
+)
+
+
+// Blog Post Routes
+
+router.post(
+    '/newPost',
+    upload.single('image'),
+    verify,
+    newBlogPost
+)
+
+router.put(
+    '/editBlog/:blogID',
+    upload.single('image'),
+    verify,
+    editBlogPost
+)
+
+router.delete(
+    '/deleteBlog/:blogID',
+    verify,
+    deleteBlogPost
+)
+
+router.get(
+    '/getAllPosts',
+    verify,
+    getAllPostsExceptUser
+)
+
+router.get(
+    '/getAllUserPosts',
+    verify,
+    getAllUserPosts
 )
 
 module.exports = router

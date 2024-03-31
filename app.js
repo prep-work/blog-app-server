@@ -9,6 +9,7 @@ const cookieParser = require('cookie-parser')
 const {PORT} = require('./configuration/config')
 const connect = require('./database/connection')
 
+const imageRoute = require('./routes/imageRoute')
 const adminRoute = require('./routes/adminRoute')
 const userRoute = require('./routes/userRoute')
 
@@ -26,8 +27,10 @@ app.get('/', (request, response) => {
     response.status(200).send({message : "It's working ✌️"})
 })
 
+app.use('/api/v1', imageRoute)
 app.use('/api/v1/admin', adminRoute)
 app.use('/api/v1/user', userRoute)
+
 
 connect() 
     .then( () => {

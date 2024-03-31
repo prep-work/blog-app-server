@@ -64,7 +64,7 @@ const deleteUser = async (request, response) => {
         const user = await userModel.findOne({ _id: id })
         if(user) {
             await userModel.deleteOne({ _id: id })
-            response.status(201).send({status: 'success', code: 201, data: [user], message: 'User deleted successfully'})
+            response.status(200).send({status: 'success', code: 200, data: [user], message: 'User deleted successfully'})
         }
         else {
             response.status(404).send({status: 'error', code: 404, data: [], message: 'User not found'})
