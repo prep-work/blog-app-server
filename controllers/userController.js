@@ -1,5 +1,7 @@
+const blogLikesModel = require("../models/blogLikesModel")
 const blogPostModel = require("../models/blogPostModel")
 const userModel = require("../models/userModel")
+const {ObjectId} = require('mongodb')
 
 // authenticateUser authenticate whether he is valid user and he is logged in 
 const authenticateUser = (request, response) => {
@@ -105,7 +107,6 @@ const newBlogPost = async (request, response) => {
 // editBlogPost edit the existing blog from the author 
 const editBlogPost = async (request, response) => {
     const {blogID} = request.params
-    const {_id} = request.user
     const blogDetails = request.body
     const filename = request.file ? request.file.filename : undefined;
 
@@ -124,7 +125,6 @@ const editBlogPost = async (request, response) => {
                 blog.image = filename
             }
             await blog.save()
-            // response.status(201).send({status: 'success', code: 201, message: 'User updated successfully'})
             response.status(201).send({status: 'success', code: 201, message: 'Blog updated successfully'})
         } 
         else {
@@ -141,7 +141,6 @@ const deleteBlogPost = async (request, response) => {
     const {blogID} = request.params
     try {
         const blog = await blogPostModel.findOne({ _id: blogID})
-        console.log(blog)
         if(!blog) {
             response.status(200).send({status: 'success', code: 200, message: 'No Blog Found '})
         }
@@ -161,17 +160,17 @@ const getAllUserPosts = async (request, response) => {
         allUserPost.forEach( user => {
             // const path = (__dirname).split('/controllers')[0] + user.image
             const baseUrl = 'http://localhost:3500/api/v1/';
-            allUserPost.forEach(user => {
-                if (!user.image.includes(baseUrl)) {
-                    user.image = baseUrl + user.image;
+            allUserPost.forEach(blog => {
+                if (!blog.image.includes(baseUrl)) {
+                    blog.image = baseUrl + blog.image;
                 }
 
-                if (!user.author.image.includes(baseUrl)) {
-                    user.author.image = baseUrl + user.author.image;
+                if (!blog.author.image.includes(baseUrl)) {
+                    blog.author.image = baseUrl + blog.author.image;
                 }
             })
         })
-        response.status(200).send(allUserPost)
+        response.status(200).send({status: 'success', code: 200, data: allUserPost, message: 'Authors Blog'})
     } 
     catch(error) {
         response.status(500).send({status: 'error', code:500, message: error.message})
@@ -180,10 +179,220 @@ const getAllUserPosts = async (request, response) => {
 
 // getAllPosts returns all the posts except the author 
 const getAllPostsExceptUser = async (request, response) => {
+    const {_id} = request.user
 
+    try {
+
+        const blogPosts = await blogPostModel.aggregate([
+            {
+              $lookup: {
+                from: "bloglikes",
+                localField: "_id",
+                foreignField: "likedPost",
+                as: "likes"
+              }
+            },
+            {
+                $addFields: {
+                  "image": {
+                    $concat: ["http://localhost:3500/api/v1/", "$image"]
+                  }
+                }
+            },
+            {
+                $addFields: {
+                    likesCount: {
+                    $size: {
+                        $ifNull: ["$likes", []]
+                    }
+                   }
+                }
+             },
+            {
+                $lookup: {
+                from: "users",
+                localField: "author",
+                foreignField: "_id",
+                as: "author"
+                }
+            },
+            {
+                $addFields: {
+                author: {
+                    $first: "$author"
+               }
+                }
+             },
+            {
+                $match: {
+                    "author._id": { $ne: _id}
+                }
+            },
+            {
+                $addFields: {
+                    "author.image": {
+                        $concat: ["http://localhost:3500/api/v1/", "$author.image"]
+                    }
+                }
+            },
+            {
+                $project: {
+                "author.password": 0
+                }
+            },
+            {
+                $set: {
+                  isUserLikedPost: {
+                    $anyElementTrue: {
+                      $map: {
+                        input: "$likes",
+                        as: "like",
+                        in: {
+                        //   $eq: ["$$like.likedUser", ObjectId(_id)]
+                          $eq: ["$$like.likedUser", _id]
+                        }
+                      }
+                    }
+                  }
+                }
+            },
+        ])
+        response.status(200).send({status: 'success', code: 200, data: blogPosts, message: 'Recommended Blog'})
+    }
+    catch(error) {
+        response.status(500).send({status: 'error', code:500, message: error.message})
+    }
 }
 
 
+// Blog Like 
+
+// editBlogLikes add like or remove dislike 
+const editBlogLikes = async (request, response) => {
+    const {blogID} = request.params
+    const userID = request.user._id
+    const {firstName} = request.user
+    const {isBlogLiked} = request.body
+
+    try{
+        const isLiked = await blogLikesModel.findOne({
+            likedUser: userID,
+            likedPost: blogID
+        })
+
+        if(!isBlogLiked && isLiked  == null) {
+            const like = await new blogLikesModel({
+                likedUser: userID,
+                likedPost: blogID
+            })
+            await like.save()
+            response.status(201).send({status: 'success', code: 201, message: "You liked this post"})
+        }
+        if(isBlogLiked && isLiked) {
+            await blogLikesModel.deleteOne({
+                _id: isLiked._id
+            })
+            response.status(200).send({status: 'success', code: 200, message: "You removed like from this post"})
+        }
+
+    }
+    catch(error) {
+        response.status(500).send({status: 'error', code:500, message: error.message})
+    }
+}
+
+const getABlogLikesDetail = async (request, response) => {
+    const {blogID} = request.params
+    const blogObjectID = new ObjectId(blogID)
+    const userID = request.user._id
+    try{
+        const blogPosts = await blogPostModel.aggregate([
+            {
+                $match: {
+                    _id: blogObjectID
+                }
+            },
+            {
+                $lookup: {
+                    from: "bloglikes",
+                    localField: "_id",
+                    foreignField: "likedPost",
+                    as: "likes"
+                }
+            },
+            {
+                $addFields: {
+                  "image": {
+                    $concat: ["http://localhost:3500/api/v1/", "$image"]
+                  }
+                }
+            },
+            {
+                $addFields: {
+                    likesCount: {
+                    $size: {
+                        $ifNull: ["$likes", []]
+                    }
+                   }
+                }
+            },
+            
+            {
+                $lookup: {
+                from: "users",
+                localField: "author",
+                foreignField: "_id",
+                as: "author"
+                }
+            },
+            {
+                $addFields: {
+                    author: {
+                        $first: "$author"
+                   }
+                }
+            },
+            {
+                $match: {
+                    "author._id": { $ne: userID}
+                }
+            },
+            {
+                $addFields: {
+                  "author.image": {
+                    $concat: ["http://localhost:3500/api/v1/", "$author.image"]
+                  }
+                }
+              },
+            {
+                $project: {
+                "author.password": 0
+                }
+            },
+            {
+                $set: {
+                    isUserLikedPost: {
+                        $anyElementTrue: {
+                        $map: {
+                            input: "$likes",
+                            as: "like",
+                            in: {
+                            $eq: ["$$like.likedUser", userID]
+                            }
+                        }
+                        }
+                    }
+                }
+            },
+            
+          ])
+
+          response.status(200).send({status: 'success', code: 200, data: blogPosts, message: 'All data of this specific blog'})
+    }
+    catch(error) {
+        response.status(500).send({status: 'error', code:500, message: error.message})
+    }
+}
 
 module.exports = {
     authenticateUser,
@@ -194,5 +403,7 @@ module.exports = {
     editBlogPost,
     deleteBlogPost,
     getAllUserPosts,
-    getAllPostsExceptUser
+    getAllPostsExceptUser,
+    getABlogLikesDetail,
+    editBlogLikes
 }
