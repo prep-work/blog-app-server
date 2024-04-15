@@ -1,3 +1,4 @@
+const blogCommentsModel = require("../models/blogCommentsModel")
 const blogLikesModel = require("../models/blogLikesModel")
 const blogPostModel = require("../models/blogPostModel")
 const userModel = require("../models/userModel")
@@ -301,91 +302,147 @@ const editBlogLikes = async (request, response) => {
     }
 }
 
-const getABlogLikesDetail = async (request, response) => {
+const getABlogDetails = async (request, response) => {
     const {blogID} = request.params
     const blogObjectID = new ObjectId(blogID)
     const userID = request.user._id
     try{
-        const blogPosts = await blogPostModel.aggregate([
-            {
-                $match: {
-                    _id: blogObjectID
-                }
-            },
-            {
-                $lookup: {
+        const blogPosts = await blogPostModel.aggregate(
+            [
+                {
+                  $match: {
+                    _id: blogObjectID,
+                  },
+                },
+                {
+                  $lookup: {
                     from: "bloglikes",
                     localField: "_id",
                     foreignField: "likedPost",
-                    as: "likes"
-                }
-            },
-            {
-                $addFields: {
-                  "image": {
-                    $concat: ["http://localhost:3500/api/v1/", "$image"]
-                  }
-                }
-            },
-            {
-                $addFields: {
-                    likesCount: {
-                    $size: {
-                        $ifNull: ["$likes", []]
-                    }
-                   }
-                }
-            },
-            
-            {
-                $lookup: {
-                from: "users",
-                localField: "author",
-                foreignField: "_id",
-                as: "author"
-                }
-            },
-            {
-                $addFields: {
-                    author: {
-                        $first: "$author"
-                   }
-                }
-            },
-            {
-                $match: {
-                    "author._id": { $ne: userID}
-                }
-            },
-            {
-                $addFields: {
-                  "author.image": {
-                    $concat: ["http://localhost:3500/api/v1/", "$author.image"]
+                    as: "likes",
+                  },
+                },
+                {
+                  $addFields: {
+                    likeCount: {
+                      $size: {
+                        $ifNull: ["$likes", []],
+                      },
+                    },
+                  },
+                },
+                {
+                  $set: {
+                    isUserLikedPost: {
+                      $anyElementTrue: {
+                        $map: {
+                          input: "$likes",
+                          as: "like",
+                          in: {
+                            $eq: [
+                              "$$like.likedUser",
+                              userID,
+                            ],
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+                {
+                  $lookup: {
+                    from: "blogcomments",
+                    localField: "_id",
+                    foreignField: "commentedPost",
+                    as: "comments",
+                    pipeline: [
+                      {
+                        $match: {
+                          parentComment: null,
+                        },
+                      },
+                    ]
+                  },
+                },
+                {
+                        $set:{
+                          isUserComment: {
+                            $anyElementTrue: {
+                              $map: {
+                                input: "$comments",
+                                as: "comment",
+                                in: {
+                                  $eq: [
+                                    "$$comment.commentedBy",
+                                    "$$comment.author._id",
+                                  ],
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                {
+                  $unwind: "$comments",
+                },
+                {
+                $set: {
+                  "comments.isUserComment": {
+                    $eq: ["$comments.commentedBy", userID]
                   }
                 }
               },
-            {
-                $project: {
-                "author.password": 0
-                }
-            },
-            {
-                $set: {
+                {
+                  $lookup: {
+                    from: "users",
+                    localField: "comments.commentedBy",
+                    foreignField: "_id",
+                    as: "comments.author",
+                    pipeline: [
+                      {
+                        $project: {
+                          firstName: 1,
+                          lastName: 1,
+                          image: {
+                            $concat: ["http://localhost:3500/api/v1/", "$image"],
+                          }
+                        },
+                      },
+                    ],
+                  },
+                },
+                {
+                  $addFields: {
+                    "comments.author": {
+                      $first: "$comments.author",
+                    },
+                  },
+                },
+                {
+                  $group: {
+                    _id: "$_id",
                     isUserLikedPost: {
-                        $anyElementTrue: {
-                        $map: {
-                            input: "$likes",
-                            as: "like",
-                            in: {
-                            $eq: ["$$like.likedUser", userID]
-                            }
-                        }
-                        }
-                    }
-                }
-            },
-            
-          ])
+                      $first: "$isUserLikedPost",
+                    },
+                    likeCount: { $first: "$likeCount" },
+                    // author: { $first: "$author" },
+                    isUserComment: { $first: "$isUserComment"},
+                    comments: { $push: "$comments" },
+                  },
+                },
+              
+                {
+                  $project: {
+                    likeCount: 1,
+                    isUserLikedPost: 1,
+                    noOfCommentReplies: 1,
+                    comments: 1,
+                    author: 1,
+                  },
+                },
+              ]
+        )
+        console.log(blogPosts)
 
           response.status(200).send({status: 'success', code: 200, data: blogPosts, message: 'All data of this specific blog'})
     }
@@ -394,16 +451,143 @@ const getABlogLikesDetail = async (request, response) => {
     }
 }
 
+
+
+// Blog Comments 
+
+
+const addACommentToBlog = async (request, response) => {
+    const {_id} = request.user
+    const { blogID } = request.params
+    const { commentText } = request.body
+    // const parentId = request.body.parentId ? request.body.parentId : null
+    const initialReply = 0
+
+    console.log(request.body)
+    try{
+        const blog = await blogPostModel.findOne({ _id: blogID })
+        if(!blog) {
+            response.status(404).send({status: 'error', code: 404, message: 'Blog not found'})
+        }
+
+        const newComment = new blogCommentsModel(
+            { 
+                text: commentText,
+                commentedBy: _id,
+                commentedPost: blogID,
+                parentComment: null,
+                numberOfReplies: initialReply,
+            }
+        )
+
+        await newComment.save()
+        response.status(201).send({status: 'success', code: 201, message: 'Comment added'})
+    }
+    catch(error) {
+        response.status(500).send({status: 'error', code:500, message: error.message})
+    }
+}
+
+const addAReplyToExistingComment = async (request, response) => {
+    const { blogID } = request.params
+    const { text, parentComment } = request.body
+    const userID = request.user._id
+    const initialReply = 0
+    console.log(blogID)
+    console.log(request.body)
+
+    const existingParentComment = await blogCommentsModel.findOne({ _id: parentComment})
+    existingParentComment.numberOfReplies += 1
+    await existingParentComment.save()
+    console.log(existingParentComment)
+
+    const newReplyComment = new blogCommentsModel(
+        {
+            text: text,
+            commentedBy: userID,
+            commentedPost: existingParentComment.commentedPost,
+            parentComment: parentComment,
+            numberOfReplies: initialReply
+        }
+    )
+    await newReplyComment.save()
+    console.log(newReplyComment)
+
+    response.status(201).send({status: "success", code: 201, message: 'Reply Comment were added'})
+}
+
+const getAllReplyToTheCorrespondingComment = async (request, response) => {
+    const {commentID} = request.params
+    const commentObjectID = new ObjectId(commentID)
+
+    const replyComment = await blogCommentsModel.aggregate(
+        [
+            {
+              $match: {
+                parentComment: commentObjectID
+              }
+            },
+            {
+              $lookup: {
+                from: "users",
+                localField: "commentedBy",
+                foreignField: "_id",
+                as: "author",
+                pipeline: [
+                  {
+                    $project: {
+                      _id: 1,
+                      firstName: 1,
+                      lastName: 1,
+                      image: {
+                        $concat: [
+                          "http://localhost:3500/api/v1/",
+                          "$image",
+                        ],
+                      },
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              $addFields: {
+                "author": {
+                  $first: "$author",
+                },
+              },
+            },
+            {
+              $project: {
+                commentedBy: 0,
+                commentedPost: 0,
+                parentComment: 0,
+                updatedAt: 0,
+              }
+            }
+          ]
+    )
+
+    response.status(200).send({status: "success", code: 200, data: replyComment, message: 'Reply Comment were send'})
+}
+
 module.exports = {
     authenticateUser,
     signUp,
     editProfile,
     deleteProfile,
+
     newBlogPost,
     editBlogPost,
     deleteBlogPost,
+
     getAllUserPosts,
     getAllPostsExceptUser,
-    getABlogLikesDetail,
-    editBlogLikes
+
+    getABlogDetails,
+    editBlogLikes,
+
+    addACommentToBlog,
+    addAReplyToExistingComment,
+    getAllReplyToTheCorrespondingComment
 }
