@@ -34,7 +34,7 @@ const login = async (request, response) => {
         response.status(200).send({ message: 'Login Successfully', userData: userData })
     } 
     catch(error) {
-        response.status(500).send({status: 'error', code:500, message: error.message})
+        response.status(500).send({ message: error.message })
     }
 }
 
@@ -43,7 +43,7 @@ const logout = async (request, response) => {
     const authHeader = request.headers['cookie']
     try {
         if(!authHeader){
-            return response.status(204).send({status: 'error', code: 204, message: 'No Content'})
+            return response.status(204).send({ message: 'No Content' })
         }
     
         const cookie = authHeader.split('=')[1]

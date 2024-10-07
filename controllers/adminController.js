@@ -1,7 +1,7 @@
 const userModel = require("../models/userModel")
 
 const authenticateAdmin = (request, response) => {
-    response.status(200).send({status: 'success', code: 200, message: `${request.user.firstName} Welcome to Admin Dashboard`})
+    response.status(200).send({ message: `${request.user.firstName} Welcome to Admin Dashboard` })
 }
 
 const createUser = async (request, response) => {
@@ -11,17 +11,17 @@ const createUser = async (request, response) => {
     try{
         const existingUser = await userModel.findOne({email})
         if(existingUser) {
-            response.status(409).send({status: 'success', code: 409, data: [], message: 'Email id already exist'})
+            response.status(409).send({ message: 'Email id already exist' })
         }
         const image = 'public/images/' + filename
         const userToBeRegistered = new userModel({firstName, lastName, email, password, image})
 
         const newUser = await userToBeRegistered.save()
         const {password: userPassword, ...user_data} = newUser._doc
-        response.status(201).send({status: 'success', code: 201, data: [user_data], message: 'User created successfully'})
+        response.status(201).send({ data: [user_data], message: 'User created successfully'})
     } 
     catch(error) {
-        response.status(500).json({status: 'error', code:500, data: [], message: error.message})
+        response.status(500).json({ message: error.message })
     }
 }
 
@@ -41,18 +41,18 @@ const editUser = async (request, response) => {
                 })
                 const updatedUser = await user.save()
                 const {role: userRole, ...userData} = updatedUser._doc
-                response.status(201).send({status: 'success', code: 201, data: [userData], message: 'User updated successfully'})
+                response.status(201).send({ data: [userData], message: 'User updated successfully' })
             } 
             else {
-                response.status(400).send({status: 'error', code: 400, data: [], message: 'No user data provided to update'})
+                response.status(400).send({ message: 'No user data provided to update' })
             }
         } 
         else {
-            response.status(404).send({status: 'error', code: 404, data: [], message: 'User not found'})
+            response.status(404).send({ message: 'User not found' })
         }
     }
     catch(error) {
-        response.status(500).json({status: 'error', code:500, data: [], message: error.message})
+        response.status(500).json({ message: error.message })
     }
 
 }
@@ -64,15 +64,15 @@ const deleteUser = async (request, response) => {
         const user = await userModel.findOne({ _id: id })
         if(user) {
             await userModel.deleteOne({ _id: id })
-            response.status(200).send({status: 'success', code: 200, data: [user], message: 'User deleted successfully'})
+            response.status(200).send({ data: [user], message: 'User deleted successfully' })
         }
         else {
-            response.status(404).send({status: 'error', code: 404, data: [], message: 'User not found'})
+            response.status(404).send({ message: 'User not found' })
         }
 
     }
     catch(error) {
-        response.status(500).json({status: 'error', code:500, data: [], message: error.message,})
+        response.status(500).json({ message: error.message })
     }
 }
 
