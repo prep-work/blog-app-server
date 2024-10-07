@@ -24,7 +24,6 @@ const signUp = async (request, response) => {
 
         await userToBeRegistered.save()
         const {password: userPassword, _id: userId, ...userData} = userToBeRegistered?._doc
-        console.log(userData)
 
         let options = {
             httpOnly: true,
