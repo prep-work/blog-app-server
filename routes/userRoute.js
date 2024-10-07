@@ -51,6 +51,13 @@ router.post(
 )
 
 router.get(
+    '/logout',
+
+    verify,
+    logout
+)
+
+router.get(
     '/authenticate',
     verify,
     authenticateUser
@@ -60,12 +67,6 @@ router.patch(
     '/editProfile',
     verify,
     editProfile
-)
-
-router.get(
-    '/logout',
-    verify,
-    logout
 )
 
 router.delete(
@@ -99,7 +100,7 @@ router.delete(
 
 router.get(
     '/getAllPosts',
-    verify,
+    // verify,
     getAllPostsExceptUser
 )
 

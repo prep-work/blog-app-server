@@ -17,13 +17,23 @@ const signUp = async (request, response) => {
     try{
         const existingUser = await userModel.findOne({email})
         if(existingUser) {
-            response.status(409).send({status: 'error', code: 409, message: 'Email id already exist'})
+            return response.status(409).send({ message: 'Email id already exist' })
         }
         const image = 'public/images/' + filename
         const userToBeRegistered = new userModel({firstName, lastName, email, password, image})
 
         await userToBeRegistered.save()
-        response.status(201).send({status: 'success', code: 201, message: 'User created successfully'})
+        const {password: userPassword, _id: userId, ...userData} = userToBeRegistered?._doc
+        console.log(userData)
+
+        let options = {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'None'
+        }
+        const token = userToBeRegistered.generateAccessJWT()
+        response.cookie('SessionID', token, options)
+        response.status(201).send({ message: 'User created successfully', userData})
     } 
     catch(error) {
         response.status(500).send({status: 'error', code:500, message: error.message})
@@ -84,7 +94,7 @@ const deleteProfile = async (request, response) => {
 // ------Blog Controller------- 
 
 // newBlogPost creates a new blog 
-const newBlogPost = async (request, response) => {
+const   newBlogPost = async (request, response) => {
     const {title, description, blogContent} = request.body
     const {filename} = request.file
     const {email} = request.user 
@@ -97,6 +107,7 @@ const newBlogPost = async (request, response) => {
         const image = 'public/images/' + filename
 
         const newBlog = new blogPostModel({ author: existingAuthor._id, title, description, blogContent, image})
+        console.log(newBlog)
         await newBlog.save()
         response.status(201).send({status: 'success', code: 201, message: 'Blog successfully published'})
 
@@ -159,7 +170,6 @@ const getAllUserPosts = async (request, response) => {
     try {
         const allUserPost = await blogPostModel.find({ author: _id }).lean().populate('author', 'firstName lastName image')
         allUserPost.forEach( user => {
-            // const path = (__dirname).split('/controllers')[0] + user.image
             const baseUrl = 'http://localhost:3500/api/v1/';
             allUserPost.forEach(blog => {
                 if (!blog.image.includes(baseUrl)) {
@@ -180,53 +190,124 @@ const getAllUserPosts = async (request, response) => {
 
 // getAllPosts returns all the posts except the author 
 const getAllPostsExceptUser = async (request, response) => {
-    const {_id} = request.user
+    const {_id} = request.user || {}
 
     try {
 
-        const blogPosts = await blogPostModel.aggregate([
+        // const blogPosts = await blogPostModel.aggregate([
+        //     {
+        //       $lookup: {
+        //         from: "bloglikes",
+        //         localField: "_id",
+        //         foreignField: "likedPost",
+        //         as: "likes"
+        //       }
+        //     },
+        //     {
+        //         $addFields: {
+        //           "image": {
+        //             $concat: ["http://localhost:3500/api/v1/", "$image"]
+        //           }
+        //         }
+        //     },
+        //     {
+        //         $addFields: {
+        //             likesCount: {
+        //             $size: {
+        //                 $ifNull: ["$likes", []]
+        //             }
+        //            }
+        //         }
+        //      },
+        //     {
+        //         $lookup: {
+        //         from: "users",
+        //         localField: "author",
+        //         foreignField: "_id",
+        //         as: "author"
+        //         }
+        //     },
+        //     {
+        //         $addFields: {
+        //         author: {
+        //             $first: "$author"
+        //        }
+        //         }
+        //      },
+        //     {
+        //         $match: {
+        //             "author._id": { $ne: _id}
+        //         }
+        //     },
+        //     {
+        //         $addFields: {
+        //             "author.image": {
+        //                 $concat: ["http://localhost:3500/api/v1/", "$author.image"]
+        //             }
+        //         }
+        //     },
+        //     {
+        //         $project: {
+        //         "author.password": 0
+        //         }
+        //     },
+        //     {
+        //         $set: {
+        //           isUserLikedPost: {
+        //             $anyElementTrue: {
+        //               $map: {
+        //                 input: "$likes",
+        //                 as: "like",
+        //                 in: {
+        //                 //   $eq: ["$$like.likedUser", ObjectId(_id)]
+        //                   $eq: ["$$like.likedUser", _id]
+        //                 }
+        //               }
+        //             }
+        //           }
+        //         }
+        //     },
+        // ])
+
+        // Base pipeline, common for both cases
+        const pipeline = [
             {
-              $lookup: {
-                from: "bloglikes",
-                localField: "_id",
-                foreignField: "likedPost",
-                as: "likes"
-              }
+                $lookup: {
+                    from: "bloglikes",
+                    localField: "_id",
+                    foreignField: "likedPost",
+                    as: "likes"
+                }
             },
             {
                 $addFields: {
-                  "image": {
-                    $concat: ["http://localhost:3500/api/v1/", "$image"]
-                  }
+                    image: {
+                        $concat: ["http://localhost:3500/api/v1/", "$image"]
+                    }
                 }
             },
             {
                 $addFields: {
                     likesCount: {
-                    $size: {
-                        $ifNull: ["$likes", []]
+                        $size: {
+                            $ifNull: ["$likes", []]
+                        }
                     }
-                   }
-                }
-             },
+                }
+            },
             {
                 $lookup: {
-                from: "users",
-                localField: "author",
-                foreignField: "_id",
-                as: "author"
+                    from: "users",
+                    localField: "author",
+                    foreignField: "_id",
+                    as: "author"
                 }
             },
             {
                 $addFields: {
-                author: {
-                    $first: "$author"
-               }
-                }
-             },
-            {
-                $match: {
-                    "author._id": { $ne: _id}
+                    author: {
+                        $first: "$author"
+                    }
                 }
             },
             {
@@ -238,26 +319,48 @@ const getAllPostsExceptUser = async (request, response) => {
             },
             {
                 $project: {
-                "author.password": 0
+                    "author.password": 0
                 }
-            },
-            {
-                $set: {
-                  isUserLikedPost: {
-                    $anyElementTrue: {
-                      $map: {
-                        input: "$likes",
-                        as: "like",
-                        in: {
-                        //   $eq: ["$$like.likedUser", ObjectId(_id)]
-                          $eq: ["$$like.likedUser", _id]
-                        }
-                      }
+            }
+        ]
+
+        // If _id is present, add filtering and 'isUserLikedPost' calculation
+        if (_id) {
+            pipeline.push(
+                {
+                    $match: {
+                        "author._id": { $ne: _id }
                     }
-                  }
+                },
+                {
+                    $set: {
+                        isUserLikedPost: {
+                            $anyElementTrue: {
+                                $map: {
+                                    input: "$likes",
+                                    as: "like",
+                                    in: {
+                                        $eq: ["$$like.likedUser", _id]
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
-            },
-        ])
+            )
+        } else {
+            // If _id is not present, set 'isUserLikedPost' to false
+            pipeline.push(
+                {
+                    $set: {
+                        isUserLikedPost: false
+                    }
+                }
+            )
+        }
+
+        const blogPosts = await blogPostModel.aggregate(pipeline)
+
         response.status(200).send({status: 'success', code: 200, data: blogPosts, message: 'Recommended Blog'})
     }
     catch(error) {
@@ -519,6 +622,7 @@ const addAReplyToExistingComment = async (request, response) => {
 const getAllReplyToTheCorrespondingComment = async (request, response) => {
     const {commentID} = request.params
     const commentObjectID = new ObjectId(commentID)
+    const userID = request.user._id
 
     const replyComment = await blogCommentsModel.aggregate(
         [
@@ -556,6 +660,13 @@ const getAllReplyToTheCorrespondingComment = async (request, response) => {
                   $first: "$author",
                 },
               },
+            },
+            {
+                $set: {
+                    "isUserComment": {
+                        $eq: ["$commentedBy", userID]
+                    }
+                }
             },
             {
               $project: {

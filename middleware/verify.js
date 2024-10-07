@@ -4,8 +4,8 @@ const userModel = require('../models/userModel')
 
 const verify = async (request, response, next) => {
     try {
-        const authHeader = request.headers['sessionid']
-
+        const authHeader = request.headers['cookie']
+        
         if(!authHeader){
             return response.status(401).send({status: 'failure', code: 401, message: 'Token not found'})
         }
